@@ -9,6 +9,8 @@
     }
   }
 
+  const textNodeMap = new Map()
+
   function mount(vnode, container) {
     let el = (vnode.el = document.createElement(vnode.tag))
     vnode._container = container
@@ -23,13 +25,17 @@
     if (vnode.children) {
       vnode.children.forEach((child) => {
         if (typeof child === 'string') {
-          el.textContent = child
+          let textNode = document.createTextNode(child)
+          textNodeMap.set(child, { node: textNode, container: el })
+          el.appendChild(textNode)
+          // el.textContent = child
         } else {
           mount(child, el)
         }
       })
     }
     // mount to element
+    if(!container) debugger 
     container.appendChild(el)
   }
 
@@ -54,8 +60,8 @@
       }
 
       // children
-      const oldChildren = n1.children
-      const newChildren = n2.children
+      const oldChildren = n1.children || []
+      const newChildren = n2.children || []
       if (typeof newChildren === 'string') {
         if (typeof oldChildren === 'string') {
           if (oldChildren !== newChildren) {
@@ -80,10 +86,10 @@
             newChildren.splice(commonLength).forEach((child) => {
               mount(child, el)
             })
-          } else if (oldChildren.length === newChildren.length) {
+          } else if (oldChildren.length > newChildren.length) {
             oldChildren.splice(commonLength).forEach((child) => {
-              // unmount(child)
-              el.removeChild(child.el)
+              unmount(child)
+              // el.removeChild(child.el)
             })
           }
         }
@@ -92,7 +98,10 @@
       // different tag
       console.log('patching different')
       // unmount old
-      unmount(n1)
+      if (typeof n1 === 'string') {
+        let node = textNodeMap.get(n1)
+        node.container.removeChild(node.node)
+      } else unmount(n1)
       mount(n2, n1._container)
     }
     // let { tag: oldTag, props: oldProps, children: oldChildren, el } = n1
@@ -169,7 +178,7 @@
     ]),
   ])
 
-  const nVdom = h('p', { class: 'green' }, [
+  const nVdom = h('div', { class: 'green' }, [
     h('div', null, ['hell no', h('ul', null, [h('li', { class: 'red' }, ['sub-children-changed'])])]),
     'next node',
   ])
