@@ -1,0 +1,189 @@
+<div id="app"></div>
+
+<script>
+  function h(tag, props, children) {
+    return {
+      tag,
+      props,
+      children,
+    }
+  }
+
+  function mount(vnode, container) {
+    let el = (vnode.el = document.createElement(vnode.tag))
+    vnode._container = container
+    // props
+    if (vnode.props) {
+      Object.keys(vnode.props).forEach((key) => {
+        let value = vnode.props[key]
+        el.setAttribute(key, value)
+      })
+    }
+    // children
+    if (vnode.children) {
+      vnode.children.forEach((child) => {
+        if (typeof child === 'string') {
+          el.textContent = child
+        } else {
+          mount(child, el)
+        }
+      })
+    }
+    // mount to element
+    container.appendChild(el)
+  }
+
+  function patch(n1, n2) {
+    if (n1.tag === n2.tag) {
+      const el = (n2.el = n1.el)
+
+      // props
+      const oldProps = n1.props || {}
+      const newProps = n2.props || {}
+      for (const key in newProps) {
+        const oldValue = oldProps[key]
+        const newValue = newProps[key]
+        if (newValue !== oldValue) {
+          el.setAttribute(key, newValue)
+        }
+      }
+      for (const key in oldProps) {
+        if (!(key in newProps)) {
+          el.removeAttribute(key)
+        }
+      }
+
+      // children
+      const oldChildren = n1.children
+      const newChildren = n2.children
+      if (typeof newChildren === 'string') {
+        if (typeof oldChildren === 'string') {
+          if (oldChildren !== newChildren) {
+            el.textContent = newChildren
+          }
+        } else {
+          // old is an array
+          el.textContent = newChildren
+        }
+      } else {
+        if (typeof oldChildren === 'string') {
+          el.innerHTML = ''
+          newChildren.forEach((child) => {
+            mount(child, el)
+          })
+        } else {
+          let commonLength = Math.min(oldChildren.length, newChildren.length)
+          for (let i = 0; i < commonLength; i++) {
+            patch(oldChildren[i], newChildren[i])
+          }
+          if (oldChildren.length < newChildren.length) {
+            newChildren.splice(commonLength).forEach((child) => {
+              mount(child, el)
+            })
+          } else if (oldChildren.length === newChildren.length) {
+            oldChildren.splice(commonLength).forEach((child) => {
+              // unmount(child)
+              el.removeChild(child.el)
+            })
+          }
+        }
+      }
+    } else {
+      // different tag
+      console.log('patching different')
+      // unmount old
+      unmount(n1)
+      mount(n2, n1._container)
+    }
+    // let { tag: oldTag, props: oldProps, children: oldChildren, el } = n1
+    // let { tag: newTag, props: newProps, children: newChildren } = n2
+    // n2.el = el
+    // n2._container = el._container
+
+    // if (oldTag === newTag) {
+    //   // props
+    //   let oldPropsKeys = Object.keys(oldProps || {})
+    //   let newPropsKeys = Object.keys(newProps || {})
+    //   let commonPropsLength = Math.min(oldPropsKeys.length, newPropsKeys.length)
+    //   // handle common length
+    //   for (let i = 0; i < commonPropsLength; i++) {
+    //     let oldKey = oldPropsKeys[i]
+    //     let newKey = newPropsKeys[i]
+    //     if (oldKey === newKey) {
+    //       if (oldProps[oldKey] !== newProps[newKey]) {
+    //         el.setAttribute(oldKey, newProps[newKey])
+    //       }
+    //     }
+    //   }
+    //   // handle remove or add props
+    //   if (oldPropsKeys.length > newPropsKeys.length) {
+    //     //remove
+    //     const removedKeys = oldPropsKeys.splice(commonPropsLength)
+    //     removedKeys.forEach((key) => {
+    //       el.removeAttribute(key)
+    //     })
+    //   } else {
+    //     // add
+    //     const addKeys = newPropsKeys.splice(commonPropsLength)
+    //     addKeys.forEach((key) => {
+    //       el.setAttribute(key, newProps[key])
+    //     })
+    //   }
+
+    // children
+
+    // still handle common length then remove or add
+    // let commonChildrenLength = Math.min(oldChildren.length, newChildren.length)
+    // for (let i = 0; i < commonChildrenLength; i++) {
+    //   let oldChild = oldChildren[i]
+    //   let newChild = newChildren[i]
+    //   if (typeof oldChild !== newChild) {
+    //     if (typeof oldChild === 'string') {
+    //       el.textContent.replace(oldChild, '')
+    //       mount(newChild, el)
+    //     }
+    //     if (oldChild.tag !== newChild.tag) {
+    //       el.removeChild(oldChild.el)
+    //       mount(newChild, el)
+    //     } else {
+    //       patch(oldChild, newChild)
+    //     }
+    //   } else {
+    //   }
+    // }
+    // } else {
+
+    // }
+  }
+
+  function unmount(vnode) {
+    const { _container, el } = vnode
+    //todo : remove event listeners
+    _container.removeChild(el)
+  }
+
+  const vdom = h('div', { class: 'red', id: 'new-mount-dom' }, [
+    h('div', null, [
+      'hello world',
+      h('ul', null, ['initial-data', h('li', null, ['sub-children', h('span', null, [])])]),
+    ]),
+  ])
+
+  const nVdom = h('p', { class: 'green' }, [
+    h('div', null, ['hell no', h('ul', null, [h('li', { class: 'red' }, ['sub-children-changed'])])]),
+    'next node',
+  ])
+
+  mount(vdom, document.getElementById('app'))
+
+  patch(vdom, nVdom)
+</script>
+
+<style>
+  .red {
+    color: red;
+  }
+  .green {
+    color: green;
+  }
+</style>
