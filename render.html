@@ -12,6 +12,12 @@
   const textNodeMap = new Map()
 
   function mount(vnode, container) {
+    if (typeof vnode == 'string') {
+      let textNode = document.createTextNode(vnode)
+      textNodeMap.set(vnode, { node: textNode, container })
+      // text节点顺序。。。。 暂时不会
+      container.appendChild(textNode)
+    }
     let el = (vnode.el = document.createElement(vnode.tag))
     vnode._container = container
     // props
@@ -35,12 +41,12 @@
       })
     }
     // mount to element
-    if(!container) debugger 
+    if (!container) debugger
     container.appendChild(el)
   }
 
   function patch(n1, n2) {
-    if (n1.tag === n2.tag) {
+    if (n1.tag === n2.tag && n1.tag !== undefined) {
       const el = (n2.el = n1.el)
 
       // props
@@ -60,8 +66,8 @@
       }
 
       // children
-      const oldChildren = n1.children || []
-      const newChildren = n2.children || []
+      const oldChildren = n1.children
+      const newChildren = n2.children
       if (typeof newChildren === 'string') {
         if (typeof oldChildren === 'string') {
           if (oldChildren !== newChildren) {
@@ -101,9 +107,14 @@
       if (typeof n1 === 'string') {
         let node = textNodeMap.get(n1)
         node.container.removeChild(node.node)
-      } else unmount(n1)
-      mount(n2, n1._container)
+        console.log(node)
+        mount(n2, node.container)
+      } else {
+        unmount(n1)
+        mount(n2, n1._container)
+      }
     }
+    // wrong code
     // let { tag: oldTag, props: oldProps, children: oldChildren, el } = n1
     // let { tag: newTag, props: newProps, children: newChildren } = n2
     // n2.el = el
@@ -186,6 +197,64 @@
   mount(vdom, document.getElementById('app'))
 
   patch(vdom, nVdom)
+
+  let activeEffect = null
+  let activeEffectStack = []
+  function watchEffect(effect) {
+    cleanupEffect()
+    activeEffectStack.push(effect)
+    activeEffect = effect
+    effect()
+    activeEffect = activeEffectStack[activeEffectStack.length - 2]
+    activeEffectStack.length> 1 && activeEffectStack.pop()
+  }
+
+  function cleanupEffect(effect) {
+    effect.deps.forEach((effect) => {})
+    effect.deps.length = 0
+  }
+  const targetMap = new WeakMap()
+  function track(target, key) {
+    let depsMap = targetMap.get(target)
+    if (!depsMap) targetMap.set(target, (depsMap = new Map()))
+
+    let deps = depsMap.get(key)
+    if (!deps) depsMap.set(key, (deps = new Set()))
+    deps.add(activeEffect)
+    activeEffect?.deps.push(activeEffect)
+  }
+
+  function trigger(target, key) {
+    let depsMap = targetMap.get(target)
+    if (!depsMap) return
+    let effects = depsMap.get(key)
+    deps &&
+      deps.forEach((dep) => {
+        dep()
+      })
+  }
+
+  const basicHandler = {
+    get(target, key, receiver) {
+      track(target, key)
+      return Reflect.get(target, key, receiver)
+    },
+    set(target, key, value, receiver) {
+      let result = Reflect.set(target, key, value, receiver)
+      trigger(target, key)
+      return result
+    },
+  }
+
+  const proxyMap = new WeakMap()
+
+  function relative(target) {
+    let existProxy = proxyMap.get(target)
+    if (existProxy) return existProxy
+    let targetProxy = new Proxy(target, basicHandler)
+    proxyMap.set(target, targetProxy)
+    return targetProxy
+  }
 </script>
 
 <style>
